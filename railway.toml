@@ -8,6 +8,7 @@ restartPolicyMaxRetries = 3
 
 [build.nixpacks]
 providers = ["python"]
+aptPkgs = ["zlib1g-dev", "libjpeg-dev"]
 
 [[mounts]]
 source = "data"
