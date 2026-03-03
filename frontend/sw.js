@@ -1,4 +1,4 @@
-const CACHE_NAME = 'carbcount-v2';
+const CACHE_NAME = 'carbcount-v3';
 const SHELL_URLS = ['/app/', '/app/style.css', '/app/app.js', '/app/manifest.json'];
 
 self.addEventListener('install', event => {

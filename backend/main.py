@@ -1,6 +1,10 @@
 import time
+import logging
 import anthropic
 from fastapi import FastAPI, HTTPException
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("carbcount")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -74,6 +78,7 @@ async def estimate(request: EstimateRequest):
 
     for attempt in range(max_retries):
         try:
+            logger.info(f"Claude API call attempt {attempt + 1} for query: {request.query[:80]}")
             response = client.messages.create(
                 model=settings.MODEL,
                 temperature=settings.TEMPERATURE,
@@ -85,9 +90,11 @@ async def estimate(request: EstimateRequest):
                 ],
                 messages=messages
             )
+            logger.info(f"Claude response stop_reason: {response.stop_reason}, blocks: {len(response.content)}")
             macros = extract_macro_response(response)
             break
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"Attempt {attempt + 1}: structured output not found: {e}")
             if attempt == max_retries - 1:
                 raise HTTPException(
                     status_code=500,
@@ -102,6 +109,18 @@ async def estimate(request: EstimateRequest):
                 "role": "user",
                 "content": "Please provide your macronutrient estimate now using the macro_estimate_response tool."
             })
+        except anthropic.APITimeoutError:
+            logger.error(f"Attempt {attempt + 1}: API timeout after {settings.API_TIMEOUT}s")
+            if attempt == max_retries - 1:
+                raise HTTPException(status_code=504, detail="AI request timed out. Try a simpler query or try again.")
+        except anthropic.APIStatusError as e:
+            logger.error(f"Attempt {attempt + 1}: API error {e.status_code}: {e.message}")
+            if attempt == max_retries - 1:
+                raise HTTPException(status_code=502, detail=f"AI service error: {e.message}")
+        except Exception as e:
+            logger.error(f"Attempt {attempt + 1}: unexpected error: {type(e).__name__}: {e}")
+            if attempt == max_retries - 1:
+                raise HTTPException(status_code=500, detail=f"Unexpected error: {type(e).__name__}")
 
     # 4. Compute Warsaw Method (deterministic)
     totals = macros["meal_totals"]

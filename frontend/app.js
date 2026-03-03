@@ -118,6 +118,7 @@ function initEstimate() {
     queryInput.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
+            queryInput.blur();
             submitEstimate();
         }
     });
